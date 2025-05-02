@@ -939,8 +939,8 @@ from PIL import Image
 
 
 # ==== TELEGRAM CONFIG ====
-BOT_TOKEN = '7802076982:AAGYvTpB0Rzt4bSxM_I3DQXBG1ijEbHBkXY'
-CHAT_ID = '7424789030'
+BOT_TOKEN = 'YOUR TOKEN'
+CHAT_ID = 'YOUR CHAT ID'
 
 def send_telegram_alert(image_path, message="🚨 No Helmet Violation Detected!"):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto'
