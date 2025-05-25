@@ -5,7 +5,7 @@ import os
 from ultralytics import YOLO
 
 # Load the trained YOLOv8 model
-model = YOLO('G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\best_v8m.pt')
+model = YOLO('G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\updated_4_best_yolov8.pt')
  
 # Define class labels and corresponding colors
 labels = ['person', 'car', 'bike', 'auto', 'bus', 'livestock', 'helmet', 'no_helmet', 'truck', 'number_plate']
@@ -16,15 +16,15 @@ colors = {
     'auto': (255, 255, 0),        # Cyan
     'bus': (255, 165, 0),         # Orange
     'livestock': (128, 0, 128),   # Purple
-    'helmet': (0, 255, 255),      # Yellow
+    'helmet': (0, 255, 255),      # Yellow\
     'no_helmet': (0, 100, 255),   # Dark Orange
     'truck': (139, 69, 19),       # Brown
     'number_plate': (255, 20, 147) # Pink
 }
  
 # Input and output directories
-input_folder = "G:\desktop\MyProjects\DL_projects\BPRD_usecase\inference\input_videos\input_videos_10-04-2025"
-output_folder = "/home/livnsense/Projects/BPRD_usecase/inference/output_videos/output_videos_hit_n_run_10-04-2025"
+input_folder = "G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\input_videos\\input_videos_12-05-2025"
+output_folder = "G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\output_videos\\output_videos_12-05-2025"
  
 # Ensure output directory exists
 os.makedirs(output_folder, exist_ok=True)

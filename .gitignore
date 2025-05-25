@@ -7,6 +7,8 @@ inference/output_videos/
 inference/hand_gesture.py
 inference/key.py
 inference/OCR.py
+inference/live_rtsp_inference.py
+inference/inference_openvino.py
 inference/openvino_conversion.py
 training/no_helmet_imp_base_run_3/
 training/no_helmet_imp_run/
