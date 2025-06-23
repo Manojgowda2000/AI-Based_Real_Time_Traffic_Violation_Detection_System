@@ -1,948 +1,27 @@
-# # incidents display
-
-
-# import streamlit as st
-# import cv2
-# import os
-# import time
-# from ultralytics import YOLO
-# import numpy as np
-# from collections import defaultdict
-# from datetime import datetime
-# from PIL import Image
-
-# # Paths
-# model_path = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\updated_4_best_yolov8.pt'
-# video_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\input_videos\\input_videos_10-04-2025'
-# output_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\output_videos\\output_videos_15-04-2025'
-# base_incident_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\incidents_clips'
-# incident_dir = os.path.join(base_incident_dir, 'incidents_clips_15-04-2025_9188')
-
-# # New: Create subfolders
-# frames_dir = os.path.join(incident_dir, "frames")
-# clips_dir = os.path.join(incident_dir, "clips")
-# os.makedirs(frames_dir, exist_ok=True)
-# os.makedirs(clips_dir, exist_ok=True)
-# os.makedirs(output_dir, exist_ok=True)
-# os.makedirs(incident_dir, exist_ok=True)
-
-# # Labels & Colors
-# labels = ['person', 'car', 'bike', 'auto', 'bus', 'livestock', 'helmet', 'no_helmet', 'truck', 'number_plate']
-# colors = {
-#     'person': (0, 255, 0), 'car': (255, 0, 0), 'bike': (0, 0, 255), 'auto': (255, 255, 0),
-#     'bus': (255, 165, 0), 'livestock': (128, 0, 128), 'helmet': (0, 255, 255),
-#     'no_helmet': (0, 100, 255), 'truck': (139, 69, 19), 'number_plate': (255, 20, 147)
-# }
-
-# # Load YOLO model
-# model = YOLO(model_path)
-
-# # Streamlit Sidebar Navigation
-# st.sidebar.title("🧭 Navigation")
-# selected_tab = st.sidebar.radio("Go to", ["Live Inference", "Incidents", "Map"])
-
-# # Live Inference
-# if selected_tab == "Live Inference":
-#     st.title("🚦Traffic Inference Dashboard")
-#     video_files = [f for f in os.listdir(video_dir) if f.endswith(('.mp4', '.avi', '.MOV'))]
-#     selected_video = st.selectbox("🎥 Select Input Video", video_files)
-#     confidence_threshold = st.slider("📏 Confidence Threshold", 0.0, 1.0, 0.3, step=0.05)
-#     label_filter = st.multiselect("🏷️ Filter by Label", labels, default=labels)
-#     start_inference = st.button("▶️ Start Inference")
-
-#     if start_inference:
-#         cap = cv2.VideoCapture(os.path.join(video_dir, selected_video))
-#         fps = int(cap.get(cv2.CAP_PROP_FPS))
-#         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-#         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-#         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-#         output_path = os.path.join(output_dir, f'output_{os.path.splitext(selected_video)[0]}.mp4')
-#         out_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-#         stframe = st.empty()
-#         progress = st.progress(0)
-#         summary = defaultdict(int)
-
-#         frame_buffer = []
-#         incident_count = 0
-#         current_frame_idx = 0
-
-#         while cap.isOpened():
-#             ret, frame = cap.read()
-#             if not ret:
-#                 break
-
-#             current_frame_idx += 1
-#             raw_frame = frame.copy()
-#             frame_buffer.append(raw_frame)
-#             if len(frame_buffer) > fps * 5:
-#                 frame_buffer.pop(0)
-
-#             results = model(frame)[0]
-#             violation_detected = False
-#             detected_frame = None
-
-#             for box in results.boxes:
-#                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-#                 conf = box.conf[0].item()
-#                 cls = int(box.cls[0].item())
-#                 label = labels[cls]
-
-#                 if conf < confidence_threshold or label not in label_filter:
-#                     continue
-
-#                 summary[label] += 1
-#                 color = colors.get(label, (255, 255, 255))
-#                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-#                 cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10),
-#                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-#                 if label == "no_helmet" and not violation_detected:
-#                     violation_detected = True
-#                     detected_frame = frame.copy()
-
-#             out_writer.write(frame)
-#             stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
-
-#             if violation_detected and detected_frame is not None:
-#                 incident_count += 1
-#                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-#                 # Save frame
-#                 frame_path = os.path.join(frames_dir, f"no_helmet_frame_{incident_count}_{timestamp}.jpg")
-#                 cv2.imwrite(frame_path, detected_frame)
-
-#                 # Save video
-#                 clip_path = os.path.join(clips_dir, f"no_helmet_incident_{incident_count}_{timestamp}.mp4")
-#                 incident_writer = cv2.VideoWriter(clip_path, fourcc, fps, (width, height))
-
-#                 for bf in frame_buffer:
-#                     incident_writer.write(bf)
-
-#                 for _ in range(fps):
-#                     incident_writer.write(raw_frame)
-
-#                 for _ in range(fps * 4):
-#                     ret_post, post_frame = cap.read()
-#                     if not ret_post:
-#                         break
-#                     incident_writer.write(post_frame)
-
-#                 incident_writer.release()
-
-#             progress.progress(current_frame_idx / total_frames)
-#             time.sleep(1 / fps)
-
-#         cap.release()
-#         out_writer.release()
-
-#         st.success(f"✅ Inference complete! Output saved to `{output_path}`")
-
-#         st.subheader("📊 Violation Summary")
-#         st.table([{"Label": k, "Count": v} for k, v in summary.items()])
-
-# # Incident Viewer
-# elif selected_tab == "Incidents":
-#     st.title("🚨 Incident Viewer")
-
-#     folders = sorted([f for f in os.listdir(base_incident_dir) if os.path.isdir(os.path.join(base_incident_dir, f))])
-#     selected_folder = st.selectbox("📁 Select Incident Folder", folders)
-
-#     selected_folder_path = os.path.join(base_incident_dir, selected_folder)
-#     selected_frames_dir = os.path.join(selected_folder_path, "frames")
-#     selected_clips_dir = os.path.join(selected_folder_path, "clips")
-
-#     image_files = sorted(os.listdir(selected_frames_dir), reverse=True)
-#     video_files = sorted(os.listdir(selected_clips_dir), reverse=True)
-
-#     incidents_per_page = 5
-#     total_incidents = len(video_files)
-#     total_pages = (total_incidents - 1) // incidents_per_page + 1
-#     page = st.number_input("📄 Page", 1, total_pages, 1)
-
-#     start = (page - 1) * incidents_per_page
-#     end = start + incidents_per_page
-
-#     current_images = image_files[start:end]
-#     current_videos = video_files[start:end]
-
-#     st.markdown("### 🖼️ Frames")
-#     for img_file in current_images:
-#         img_path = os.path.join(selected_frames_dir, img_file)
-#         st.image(img_path, caption=img_file, use_container_width=True)
-
-#     # st.markdown("### 🎞️ Clips")
-#     # for vid_file in current_videos:
-#     #     vid_path = os.path.join(selected_clips_dir, vid_file)
-#     #     with open(vid_path, 'rb') as video_file:
-#     #         video_bytes = video_file.read()
-#     #         st.video(video_bytes)
-
-#     st.markdown("---")
-#     st.subheader("🚧 Coming Soon")
-#     st.markdown("🅿️ **No Parking Violations** – Data not yet available.")
-#     st.markdown("👨‍👩‍👦 **Triple Riding Violations** – Data not yet available.")
-    
-# # elif selected_tab == "Map":
-# #     st.title("🗺️ Real-time Map View")
-
-# #     import streamlit.components.v1 as components
-
-# #     map_url = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.9472910587865!2d77.63261757512184!3d12.911109287398782!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae15d1559e2651%3A0xb27e383e612faa20!2sLivNSense%20GreenOps%20Pvt%20Ltd!5e0!3m2!1sen!2sin!4v1744711532262!5m2!1sen!2sin"
-
-# #     components.iframe(map_url, height=800, width=700)
-
-# elif selected_tab == "Map":
-#     st.title("🗺️ Real-time Map View")
-
-#     import streamlit.components.v1 as components
-
-#     st.markdown("""
-#         ## 📍 Map View – Live Location
-#         This map displays the **real-time monitoring area**.
-#         Zoom, pan, or switch to satellite view to explore the area being analyzed.
-#     """)
-
-#     map_url = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.9472910587865!2d77.63261757512184!3d12.911109287398782!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae15d1559e2651%3A0xb27e383e612faa20!2sLivNSense%20GreenOps%20Pvt%20Ltd!5e0!3m2!1sen!2sin!4v1744711532262!5m2!1sen!2sin"
-
-#     components.html(f"""
-#         <div style="border: 3px solid #4CAF50; border-radius: 15px; overflow: hidden; box-shadow: 0px 4px 8px rgba(0,0,0,0.1);">
-#             <iframe 
-#                 src="{map_url}" 
-#                 width="100%" 
-#                 height="800" 
-#                 style="border:0;" 
-#                 allowfullscreen="" 
-#                 loading="lazy">
-#             </iframe>
-#         </div>
-#     """, height=820)
-
-
-
-
-
-#-------------------------------------------------------------------------------------------------------------------------------
-
-
-# live input
-
-
-
-# import streamlit as st
-# import cv2
-# import os
-# import time
-# from ultralytics import YOLO
-# import numpy as np
-# from collections import defaultdict
-# from datetime import datetime
-# from PIL import Image
-
-# # Paths
-# model_path = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\updated_4_best_yolov8.pt'
-# video_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\input_videos\\input_videos_10-04-2025'
-# output_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\output_videos\\output_videos_15-04-2025'
-# base_incident_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\incidents_clips'
-# incident_dir = os.path.join(base_incident_dir, 'incidents_clips_live')
-
-# # New: Create subfolders
-# frames_dir = os.path.join(incident_dir, "frames")
-# clips_dir = os.path.join(incident_dir, "clips")
-# os.makedirs(frames_dir, exist_ok=True)
-# os.makedirs(clips_dir, exist_ok=True)
-# os.makedirs(output_dir, exist_ok=True)
-# os.makedirs(incident_dir, exist_ok=True)
-
-# # Labels & Colors
-# labels = ['person', 'car', 'bike', 'auto', 'bus', 'livestock', 'helmet', 'no_helmet', 'truck', 'number_plate']
-# colors = {
-#     'person': (0, 255, 0), 'car': (255, 0, 0), 'bike': (0, 0, 255), 'auto': (255, 255, 0),
-#     'bus': (255, 165, 0), 'livestock': (128, 0, 128), 'helmet': (0, 255, 255),
-#     'no_helmet': (0, 100, 255), 'truck': (139, 69, 19), 'number_plate': (255, 20, 147)
-# }
-
-# # Load YOLO model
-# model = YOLO(model_path)
-
-# # Streamlit Sidebar Navigation
-# st.sidebar.title("🧭 Navigation")
-# selected_tab = st.sidebar.radio("Go to", ["Live Inference", "Incidents", "Map"])
-
-# # Live Inference
-# if selected_tab == "Live Inference":
-#     st.title("🚦Traffic Inference Dashboard")
-#     input_mode = st.radio("📡 Input Mode", ["Upload Video", "Live Cam"])
-#     confidence_threshold = st.slider("📏 Confidence Threshold", 0.0, 1.0, 0.3, step=0.05)
-#     label_filter = st.multiselect("🏷️ Filter by Label", labels, default=labels)
-
-#     if input_mode == "Upload Video":
-#         video_files = [f for f in os.listdir(video_dir) if f.endswith(('.mp4', '.avi', '.MOV'))]
-#         selected_video = st.selectbox("🎥 Select Input Video", video_files)
-#         start_inference = st.button("▶️ Start Inference")
-
-#         if start_inference:
-#             cap = cv2.VideoCapture(os.path.join(video_dir, selected_video))
-#     else:
-#         start_cam = st.button("🎥 Start Camera")
-#         stop_cam = st.button("🛑 Stop Camera")
-#         cap = None
-#         # if start_cam:
-#         #     cap = cv2.VideoCapture(0)
-#         ip_webcam_url = st.text_input("📱 Enter IP Webcam URL", "http://192.168.2.93:8080/video")
-
-#         if start_cam:
-#             cap = cv2.VideoCapture(ip_webcam_url)
-
-#     if (input_mode == "Upload Video" and start_inference) or (input_mode == "Live Cam" and cap is not None):
-#         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
-#         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-#         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-#         output_path = os.path.join(output_dir, f'output_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp4')
-#         out_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-#         stframe = st.empty()
-#         summary = defaultdict(int)
-
-#         frame_buffer = []
-#         incident_count = 0
-#         current_frame_idx = 0
-
-#         while cap.isOpened():
-#             ret, frame = cap.read()
-#             if not ret:
-#                 break
-
-#             current_frame_idx += 1
-#             raw_frame = frame.copy()
-#             frame_buffer.append(raw_frame)
-#             if len(frame_buffer) > fps * 5:
-#                 frame_buffer.pop(0)
-
-#             results = model(frame)[0]
-#             violation_detected = False
-#             detected_frame = None
-
-#             for box in results.boxes:
-#                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-#                 conf = box.conf[0].item()
-#                 cls = int(box.cls[0].item())
-#                 label = labels[cls]
-
-#                 if conf < confidence_threshold or label not in label_filter:
-#                     continue
-
-#                 summary[label] += 1
-#                 color = colors.get(label, (255, 255, 255))
-#                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-#                 cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10),
-#                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-#                 if label == "no_helmet" and not violation_detected:
-#                     violation_detected = True
-#                     detected_frame = frame.copy()
-
-#             out_writer.write(frame)
-#             stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
-
-#             if violation_detected and detected_frame is not None:
-#                 incident_count += 1
-#                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-#                 frame_path = os.path.join(frames_dir, f"no_helmet_frame_{incident_count}_{timestamp}.jpg")
-#                 cv2.imwrite(frame_path, detected_frame)
-
-#                 clip_path = os.path.join(clips_dir, f"no_helmet_incident_{incident_count}_{timestamp}.mp4")
-#                 incident_writer = cv2.VideoWriter(clip_path, fourcc, fps, (width, height))
-
-#                 for bf in frame_buffer:
-#                     incident_writer.write(bf)
-#                 for _ in range(fps):
-#                     incident_writer.write(raw_frame)
-#                 incident_writer.release()
-
-#             time.sleep(1 / fps)
-#             if input_mode == "Live Cam" and stop_cam:
-#                 break
-
-#         cap.release()
-#         out_writer.release()
-
-#         st.success(f"✅ Inference complete! Output saved to `{output_path}`")
-#         st.subheader("📊 Violation Summary")
-#         st.table([{"Label": k, "Count": v} for k, v in summary.items()])
-
-# # Incident Viewer
-# elif selected_tab == "Incidents":
-#     st.title("🚨 Incident Viewer")
-
-#     folders = sorted([f for f in os.listdir(base_incident_dir) if os.path.isdir(os.path.join(base_incident_dir, f))])
-#     selected_folder = st.selectbox("📁 Select Incident Folder", folders)
-
-#     selected_folder_path = os.path.join(base_incident_dir, selected_folder)
-#     selected_frames_dir = os.path.join(selected_folder_path, "frames")
-#     selected_clips_dir = os.path.join(selected_folder_path, "clips")
-
-#     image_files = sorted(os.listdir(selected_frames_dir), reverse=True)
-#     video_files = sorted(os.listdir(selected_clips_dir), reverse=True)
-
-#     incidents_per_page = 5
-#     total_incidents = len(video_files)
-#     total_pages = (total_incidents - 1) // incidents_per_page + 1
-#     page = st.number_input("📄 Page", 1, total_pages, 1)
-
-#     start = (page - 1) * incidents_per_page
-#     end = start + incidents_per_page
-
-#     current_images = image_files[start:end]
-#     current_videos = video_files[start:end]
-
-#     st.markdown("### 🖼️ Frames")
-#     for img_file in current_images:
-#         img_path = os.path.join(selected_frames_dir, img_file)
-#         st.image(img_path, caption=img_file, use_container_width=True)
-
-#     # st.markdown("### 🎞️ Clips")
-#     # for vid_file in current_videos:
-#     #     vid_path = os.path.join(selected_clips_dir, vid_file)
-#     #     with open(vid_path, 'rb') as video_file:
-#     #         video_bytes = video_file.read()
-#     #         st.video(video_bytes)
-
-#     st.markdown("---")
-#     st.subheader("🚧 Coming Soon")
-#     st.markdown("🅿️ **No Parking Violations** – Data not yet available.")
-#     st.markdown("👨‍👩‍👦 **Triple Riding Violations** – Data not yet available.")
-
-# # Map Tab
-# elif selected_tab == "Map":
-#     st.title("🗺️ Real-time Map View")
-
-#     import streamlit.components.v1 as components
-
-#     st.markdown("""
-#         ## 📍 Map View – Live Location
-#         This map displays the **real-time monitoring area**.
-#         Zoom, pan, or switch to satellite view to explore the area being analyzed.
-#     """)
-
-#     map_url = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.9472910587865!2d77.63261757512184!3d12.911109287398782!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae15d1559e2651%3A0xb27e383e612faa20!2sLivNSense%20GreenOps%20Pvt%20Ltd!5e0!3m2!1sen!2sin!4v1744711532262!5m2!1sen!2sin"
-
-#     components.html(f"""
-#         <div style="border: 3px solid #4CAF50; border-radius: 15px; overflow: hidden; box-shadow: 0px 4px 8px rgba(0,0,0,0.1);">
-#             <iframe 
-#                 src="{map_url}" 
-#                 width="100%" 
-#                 height="800" 
-#                 style="border:0;" 
-#                 allowfullscreen="" 
-#                 loading="lazy">
-#             </iframe>
-#         </div>
-#     """, height=820)
-
-
-#----------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-# telegram alert with video
-
-# TELEGRAM_BOT_TOKEN = "7802076982:AAGYvTpB0Rzt4bSxM_I3DQXBG1ijEbHBkXY"  # Replace with your Telegram Bot Token
-# TELEGRAM_CHAT_ID = "7424789030"      # Replace with your Telegram Chat ID
-
-
-
-# import streamlit as st
-# import cv2
-# import os
-# import time
-# import requests
-# from ultralytics import YOLO
-# import numpy as np
-# from collections import defaultdict
-# from datetime import datetime
-# from PIL import Image
-
-# # Telegram Bot Config
-# TELEGRAM_BOT_TOKEN = "7802076982:AAGYvTpB0Rzt4bSxM_I3DQXBG1ijEbHBkXY"  # Replace with your Telegram Bot Token
-# TELEGRAM_CHAT_ID = "7424789030"      # Replace with your Telegram Chat ID
-
-# def send_telegram_alert(bot_token, chat_id, message, video_path=None):
-#     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-#     payload = {"chat_id": chat_id, "text": message}
-#     requests.post(url, data=payload)
-
-#     if video_path:
-#         send_video_url = f"https://api.telegram.org/bot{bot_token}/sendVideo"
-#         with open(video_path, 'rb') as video_file:
-#             files = {"video": video_file}
-#             data = {"chat_id": chat_id}
-#             requests.post(send_video_url, data=data, files=files)
-
-# # Paths
-# model_path = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\updated_4_best_yolov8.pt'
-# video_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\input_videos\\input_videos_10-04-2025'
-# output_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\output_videos\\output_videos_15-04-2025'
-# base_incident_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\incidents_clips'
-# incident_dir = os.path.join(base_incident_dir, 'incidents_clips_live_alert')
-
-# # Create subfolders
-# frames_dir = os.path.join(incident_dir, "frames")
-# clips_dir = os.path.join(incident_dir, "clips")
-# os.makedirs(frames_dir, exist_ok=True)
-# os.makedirs(clips_dir, exist_ok=True)
-# os.makedirs(output_dir, exist_ok=True)
-# os.makedirs(incident_dir, exist_ok=True)
-
-# # Labels & Colors
-# labels = ['person', 'car', 'bike', 'auto', 'bus', 'livestock', 'helmet', 'no_helmet', 'truck', 'number_plate']
-# colors = {
-#     'person': (0, 255, 0), 'car': (255, 0, 0), 'bike': (0, 0, 255), 'auto': (255, 255, 0),
-#     'bus': (255, 165, 0), 'livestock': (128, 0, 128), 'helmet': (0, 255, 255),
-#     'no_helmet': (0, 100, 255), 'truck': (139, 69, 19), 'number_plate': (255, 20, 147)
-# }
-
-# # Load YOLO model
-# model = YOLO(model_path)
-
-# # Streamlit Sidebar Navigation
-# st.sidebar.title("🧭 Navigation")
-# selected_tab = st.sidebar.radio("Go to", ["Live Inference", "Incidents", "Map"])
-
-# # Live Inference
-# if selected_tab == "Live Inference":
-#     st.title("🚦Traffic Inference Dashboard")
-#     input_mode = st.radio("📡 Input Mode", ["Upload Video", "Live Cam"])
-#     confidence_threshold = st.slider("📏 Confidence Threshold", 0.0, 1.0, 0.3, step=0.05)
-#     label_filter = st.multiselect("🏷️ Filter by Label", labels, default=labels)
-
-#     if input_mode == "Upload Video":
-#         video_files = [f for f in os.listdir(video_dir) if f.endswith(('.mp4', '.avi', '.MOV'))]
-#         selected_video = st.selectbox("🎥 Select Input Video", video_files)
-#         start_inference = st.button("▶️ Start Inference")
-
-#         if start_inference:
-#             cap = cv2.VideoCapture(os.path.join(video_dir, selected_video))
-#     else:
-#         start_cam = st.button("🎥 Start Camera")
-#         stop_cam = st.button("🛑 Stop Camera")
-#         cap = None
-#         ip_webcam_url = st.text_input("📱 Enter IP Webcam URL", "http://192.168.2.93:8080/video")
-
-#         if start_cam:
-#             cap = cv2.VideoCapture(ip_webcam_url)
-
-#     if (input_mode == "Upload Video" and start_inference) or (input_mode == "Live Cam" and cap is not None):
-#         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
-#         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-#         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-#         output_path = os.path.join(output_dir, f'output_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp4')
-#         out_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-#         stframe = st.empty()
-#         summary = defaultdict(int)
-
-#         frame_buffer = []
-#         incident_count = 0
-#         current_frame_idx = 0
-
-#         while cap.isOpened():
-#             ret, frame = cap.read()
-#             if not ret:
-#                 break
-
-#             current_frame_idx += 1
-#             raw_frame = frame.copy()
-#             frame_buffer.append(raw_frame)
-#             if len(frame_buffer) > fps * 5:
-#                 frame_buffer.pop(0)
-
-#             results = model(frame)[0]
-#             violation_detected = False
-#             detected_frame = None
-
-#             for box in results.boxes:
-#                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-#                 conf = box.conf[0].item()
-#                 cls = int(box.cls[0].item())
-#                 label = labels[cls]
-
-#                 if conf < confidence_threshold or label not in label_filter:
-#                     continue
-
-#                 summary[label] += 1
-#                 color = colors.get(label, (255, 255, 255))
-#                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-#                 cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10),
-#                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-#                 if label == "no_helmet" and not violation_detected:
-#                     violation_detected = True
-#                     detected_frame = frame.copy()
-
-#             out_writer.write(frame)
-#             stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
-
-#             if violation_detected and detected_frame is not None:
-#                 incident_count += 1
-#                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-#                 frame_path = os.path.join(frames_dir, f"no_helmet_frame_{incident_count}_{timestamp}.jpg")
-#                 cv2.imwrite(frame_path, detected_frame)
-
-#                 clip_path = os.path.join(clips_dir, f"no_helmet_incident_{incident_count}_{timestamp}.mp4")
-#                 incident_writer = cv2.VideoWriter(clip_path, fourcc, fps, (width, height))
-
-#                 for bf in frame_buffer:
-#                     incident_writer.write(bf)
-#                 for _ in range(fps):
-#                     incident_writer.write(raw_frame)
-#                 incident_writer.release()
-
-#                 # Send Telegram alert
-#                 alert_msg = f"🚨 No Helmet Violation Detected!\nIncident #{incident_count}\nTime: {timestamp}"
-#                 send_telegram_alert(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, alert_msg, clip_path)
-
-#             time.sleep(1 / fps)
-#             if input_mode == "Live Cam" and stop_cam:
-#                 break
-
-#         cap.release()
-#         out_writer.release()
-
-#         st.success(f"✅ Inference complete! Output saved to `{output_path}`")
-#         st.subheader("📊 Violation Summary")
-#         st.table([{"Label": k, "Count": v} for k, v in summary.items()])
-
-# # Incident Viewer
-# elif selected_tab == "Incidents":
-#     st.title("🚨 Incident Viewer")
-
-#     folders = sorted([f for f in os.listdir(base_incident_dir) if os.path.isdir(os.path.join(base_incident_dir, f))])
-#     selected_folder = st.selectbox("📁 Select Incident Folder", folders)
-
-#     selected_folder_path = os.path.join(base_incident_dir, selected_folder)
-#     selected_frames_dir = os.path.join(selected_folder_path, "frames")
-#     selected_clips_dir = os.path.join(selected_folder_path, "clips")
-
-#     image_files = sorted(os.listdir(selected_frames_dir), reverse=True)
-#     video_files = sorted(os.listdir(selected_clips_dir), reverse=True)
-
-#     incidents_per_page = 5
-#     total_incidents = len(video_files)
-#     total_pages = (total_incidents - 1) // incidents_per_page + 1
-#     page = st.number_input("📄 Page", 1, total_pages, 1)
-
-#     start = (page - 1) * incidents_per_page
-#     end = start + incidents_per_page
-
-#     current_images = image_files[start:end]
-#     current_videos = video_files[start:end]
-
-#     st.markdown("### 🖼️ Frames")
-#     for img_file in current_images:
-#         img_path = os.path.join(selected_frames_dir, img_file)
-#         st.image(img_path, caption=img_file, use_container_width=True)
-
-#     st.markdown("---")
-#     st.subheader("🚧 Coming Soon")
-#     st.markdown("🅿️ **No Parking Violations** – Data not yet available.")
-#     st.markdown("👨‍👩‍👦 **Triple Riding Violations** – Data not yet available.")
-
-# # Map Tab
-# elif selected_tab == "Map":
-#     st.title("🗺️ Real-time Map View")
-
-#     import streamlit.components.v1 as components
-
-#     st.markdown("""
-#         ## 📍 Map View – Live Location
-#         This map displays the **real-time monitoring area**.
-#         Zoom, pan, or switch to satellite view to explore the area being analyzed.
-#     """)
-
-#     map_url = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.9472910587865!2d77.63261757512184!3d12.911109287398782!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae15d1559e2651%3A0xb27e383e612faa20!2sLivNSense%20GreenOps%20Pvt%20Ltd!5e0!3m2!1sen!2sin!4v1744711532262!5m2!1sen!2sin"
-
-#     components.html(f"""
-#         <div style="border: 3px solid #4CAF50; border-radius: 15px; overflow: hidden; box-shadow: 0px 4px 8px rgba(0,0,0,0.1);">
-#             <iframe 
-#                 src="{map_url}" 
-#                 width="100%" 
-#                 height="800" 
-#                 style="border:0;" 
-#                 allowfullscreen="" 
-#                 loading="lazy">
-#             </iframe>
-#         </div>
-#     """, height=820)
-
-
-
-
-
-
-
-
-
-# telegram alert with image
-
-
-
-
-# import streamlit as st
-# import cv2
-# import os
-# import time
-# from ultralytics import YOLO
-# import numpy as np
-# from collections import defaultdict
-# from datetime import datetime
-# from PIL import Image
-# import requests
-
-# # Telegram Configuration
-# TELEGRAM_BOT_TOKEN = "7802076982:AAGYvTpB0Rzt4bSxM_I3DQXBG1ijEbHBkXY"
-# TELEGRAM_CHAT_ID = "7424789030"
-
-# def send_telegram_alert(image_path, caption="🚨 No Helmet Violation Detected!"):
-#     try:
-#         with open(image_path, 'rb') as img:
-#             files = {'photo': img}
-#             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-#             data = {"chat_id": TELEGRAM_CHAT_ID, "caption": caption}
-#             response = requests.post(url, files=files, data=data)
-#             if response.status_code != 200:
-#                 st.warning("⚠️ Telegram alert failed to send.")
-#     except Exception as e:
-#         st.error(f"Telegram Alert Error: {e}")
-
-# # Paths
-# model_path = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\updated_4_best_yolov8.pt'
-# video_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\input_videos\\input_videos_10-04-2025'
-# output_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\output_videos\\output_videos_15-04-2025'
-# base_incident_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\incidents_clips'
-# incident_dir = os.path.join(base_incident_dir, 'incidents_clips_live_alert')
-
-# # New: Create subfolders
-# frames_dir = os.path.join(incident_dir, "frames")
-# clips_dir = os.path.join(incident_dir, "clips")
-# os.makedirs(frames_dir, exist_ok=True)
-# os.makedirs(clips_dir, exist_ok=True)
-# os.makedirs(output_dir, exist_ok=True)
-# os.makedirs(incident_dir, exist_ok=True)
-
-# # Labels & Colors
-# labels = ['person', 'car', 'bike', 'auto', 'bus', 'livestock', 'helmet', 'no_helmet', 'truck', 'number_plate']
-# colors = {
-#     'person': (0, 255, 0), 'car': (255, 0, 0), 'bike': (0, 0, 255), 'auto': (255, 255, 0),
-#     'bus': (255, 165, 0), 'livestock': (128, 0, 128), 'helmet': (0, 255, 255),
-#     'no_helmet': (0, 100, 255), 'truck': (139, 69, 19), 'number_plate': (255, 20, 147)
-# }
-
-# # Load YOLO model
-# model = YOLO(model_path)
-
-# # Streamlit Sidebar Navigation
-# st.sidebar.title("🧭 Navigation")
-# selected_tab = st.sidebar.radio("Go to", ["Live Inference", "Incidents", "Map"])
-
-# # Live Inference
-# if selected_tab == "Live Inference":
-#     st.title("🚦Traffic Inference Dashboard")
-#     input_mode = st.radio("📡 Input Mode", ["Upload Video", "Live Cam"])
-#     confidence_threshold = st.slider("📏 Confidence Threshold", 0.0, 1.0, 0.3, step=0.05)
-#     label_filter = st.multiselect("🏷️ Filter by Label", labels, default=labels)
-
-#     if input_mode == "Upload Video":
-#         video_files = [f for f in os.listdir(video_dir) if f.endswith(('.mp4', '.avi', '.MOV'))]
-#         selected_video = st.selectbox("🎥 Select Input Video", video_files)
-#         start_inference = st.button("▶️ Start Inference")
-
-#         if start_inference:
-#             cap = cv2.VideoCapture(os.path.join(video_dir, selected_video))
-#     else:
-#         start_cam = st.button("🎥 Start Camera")
-#         stop_cam = st.button("🛑 Stop Camera")
-#         cap = None
-#         ip_webcam_url = st.text_input("📱 Enter IP Webcam URL", "http://192.168.2.93:8080/video")
-
-#         if start_cam:
-#             cap = cv2.VideoCapture(ip_webcam_url)
-
-#     if (input_mode == "Upload Video" and start_inference) or (input_mode == "Live Cam" and cap is not None):
-#         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
-#         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-#         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-#         output_path = os.path.join(output_dir, f'output_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp4')
-#         out_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-#         stframe = st.empty()
-#         summary = defaultdict(int)
-
-#         frame_buffer = []
-#         incident_count = 0
-#         current_frame_idx = 0
-
-#         while cap.isOpened():
-#             ret, frame = cap.read()
-#             if not ret:
-#                 break
-
-#             current_frame_idx += 1
-#             raw_frame = frame.copy()
-#             frame_buffer.append(raw_frame)
-#             if len(frame_buffer) > fps * 5:
-#                 frame_buffer.pop(0)
-
-#             results = model(frame)[0]
-#             violation_detected = False
-#             detected_frame = None
-
-#             for box in results.boxes:
-#                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-#                 conf = box.conf[0].item()
-#                 cls = int(box.cls[0].item())
-#                 label = labels[cls]
-
-#                 if conf < confidence_threshold or label not in label_filter:
-#                     continue
-
-#                 summary[label] += 1
-#                 color = colors.get(label, (255, 255, 255))
-#                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-#                 cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10),
-#                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-#                 if label == "no_helmet" and not violation_detected:
-#                     violation_detected = True
-#                     detected_frame = frame.copy()
-
-#             out_writer.write(frame)
-#             stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
-
-#             if violation_detected and detected_frame is not None:
-#                 incident_count += 1
-#                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-#                 frame_path = os.path.join(frames_dir, f"no_helmet_frame_{incident_count}_{timestamp}.jpg")
-#                 cv2.imwrite(frame_path, detected_frame)
-
-#                 # Send to Telegram
-#                 send_telegram_alert(frame_path)
-
-#                 clip_path = os.path.join(clips_dir, f"no_helmet_incident_{incident_count}_{timestamp}.mp4")
-#                 incident_writer = cv2.VideoWriter(clip_path, fourcc, fps, (width, height))
-
-#                 for bf in frame_buffer:
-#                     incident_writer.write(bf)
-#                 for _ in range(fps):
-#                     incident_writer.write(raw_frame)
-#                 incident_writer.release()
-
-#             time.sleep(1 / fps)
-#             if input_mode == "Live Cam" and stop_cam:
-#                 break
-
-#         cap.release()
-#         out_writer.release()
-
-#         st.success(f"✅ Inference complete! Output saved to `{output_path}`")
-#         st.subheader("📊 Violation Summary")
-#         st.table([{"Label": k, "Count": v} for k, v in summary.items()])
-
-# # Incident Viewer
-# elif selected_tab == "Incidents":
-#     st.title("🚨 Incident Viewer")
-
-#     folders = sorted([f for f in os.listdir(base_incident_dir) if os.path.isdir(os.path.join(base_incident_dir, f))])
-#     selected_folder = st.selectbox("📁 Select Incident Folder", folders)
-
-#     selected_folder_path = os.path.join(base_incident_dir, selected_folder)
-#     selected_frames_dir = os.path.join(selected_folder_path, "frames")
-#     selected_clips_dir = os.path.join(selected_folder_path, "clips")
-
-#     image_files = sorted(os.listdir(selected_frames_dir), reverse=True)
-#     video_files = sorted(os.listdir(selected_clips_dir), reverse=True)
-
-#     incidents_per_page = 5
-#     total_incidents = len(video_files)
-#     total_pages = (total_incidents - 1) // incidents_per_page + 1
-#     page = st.number_input("📄 Page", 1, total_pages, 1)
-
-#     start = (page - 1) * incidents_per_page
-#     end = start + incidents_per_page
-
-#     current_images = image_files[start:end]
-#     current_videos = video_files[start:end]
-
-#     st.markdown("### 🖼️ Frames")
-#     for img_file in current_images:
-#         img_path = os.path.join(selected_frames_dir, img_file)
-#         st.image(img_path, caption=img_file, use_container_width=True)
-
-#     st.markdown("---")
-#     st.subheader("🚧 Coming Soon")
-#     st.markdown("🅿️ **No Parking Violations** – Data not yet available.")
-#     st.markdown("👨‍👩‍👦 **Triple Riding Violations** – Data not yet available.")
-
-# # Map Tab
-# elif selected_tab == "Map":
-#     st.title("🗺️ Real-time Map View")
-
-#     import streamlit.components.v1 as components
-
-#     st.markdown("""
-#         ## 📍 Map View – Live Location
-#         This map displays the **real-time monitoring area**.
-#         Zoom, pan, or switch to satellite view to explore the area being analyzed.
-#     """)
-
-#     map_url = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.9472910587865!2d77.63261757512184!3d12.911109287398782!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae15d1559e2651%3A0xb27e383e612faa20!2sLivNSense%20GreenOps%20Pvt%20Ltd!5e0!3m2!1sen!2sin!4v1744711532262!5m2!1sen!2sin"
-
-#     components.html(f"""
-#         <div style="border: 3px solid #4CAF50; border-radius: 15px; overflow: hidden; box-shadow: 0px 4px 8px rgba(0,0,0,0.1);">
-#             <iframe 
-#                 src="{map_url}" 
-#                 width="100%" 
-#                 height="800" 
-#                 style="border:0;" 
-#                 allowfullscreen="" 
-#                 loading="lazy">
-#             </iframe>
-#         </div>
-#     """, height=820)
-
-#--------------------------------------------Final code-------------------------------------------------------------
-
 import streamlit as st
 import cv2
 import os
 import time
 import requests
+import threading
 from ultralytics import YOLO
 import numpy as np
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image
+import torch
+import torchvision
 
+from datetime import datetime
+
+# Get current date
+current_date = datetime.now().strftime("%d-%m-%Y")
 
 # ==== TELEGRAM CONFIG ====
 BOT_TOKEN = 'YOUR TOKEN'
 CHAT_ID = 'YOUR CHAT ID'
 
-def send_telegram_alert(image_path, message="🚨 No Helmet Violation Detected!"):
+def send_telegram_alert(image_path, message):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto'
     with open(image_path, 'rb') as photo:
         files = {'photo': photo}
@@ -950,189 +29,329 @@ def send_telegram_alert(image_path, message="🚨 No Helmet Violation Detected!"
         response = requests.post(url, files=files, data=data)
         return response.status_code == 200
 
-# ==== PATHS ====
-model_path = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\models\\updated_4_best_yolov8.pt'
-video_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\input_videos\\input_videos_18-04-2025'
-output_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\output_videos\\sam_output_videos_18-04-2025'
-base_incident_dir = 'G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\incidents_clips'
-incident_dir = os.path.join(base_incident_dir, 'incidents_clips_18-04-2025')
+# ==== UTILS ====
+def non_max_suppression_classwise(boxes, confs, iou_threshold=0.5):
+    if len(boxes) == 0:
+        return []
+    boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
+    confs_tensor = torch.tensor(confs)
+    keep = torchvision.ops.nms(boxes_tensor, confs_tensor, iou_threshold)
+    return keep.numpy().tolist()
 
-frames_dir = os.path.join(incident_dir, "frames")
-clips_dir = os.path.join(incident_dir, "clips")
-os.makedirs(frames_dir, exist_ok=True)
-os.makedirs(clips_dir, exist_ok=True)
-os.makedirs(output_dir, exist_ok=True)
-os.makedirs(incident_dir, exist_ok=True)
+def save_violation_clip(image_path, clip_path, frame, frame_buffer, fps, width, height, message):
+    cv2.imwrite(image_path, frame)
+    writer = cv2.VideoWriter(clip_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    for f in frame_buffer:
+        writer.write(f)
+    writer.release()
+    send_telegram_alert(image_path, message)
 
-# ==== LABELS ====
+# ==== PATH SETUP ====
+base_dir = '/home/livnsense/Projects/BPRD_usecase/inference'
+model_path = os.path.join(base_dir, 'models/MODEL.pt')
+video_dir = os.path.join(base_dir, 'input_videos/input_videos_10-04-2025')
+output_dir = os.path.join(base_dir, f'output_videos/output_videos_{current_date}')
+incident_base = os.path.join(base_dir, 'incidents')
+no_helmet_dir = os.path.join(incident_base, f'no_helmet_{current_date}')
+triple_riding_dir = os.path.join(incident_base, f'triple_riding_{current_date}')
+no_parking_dir = os.path.join(incident_base, f'no_parking_{current_date}')
+
+for d in [no_helmet_dir, triple_riding_dir, no_parking_dir, output_dir]:
+    os.makedirs(os.path.join(d, 'frames'), exist_ok=True)
+    os.makedirs(os.path.join(d, 'clips'), exist_ok=True)
+
+# ==== MODEL & LABELS ====
+model = YOLO(model_path)
 labels = ['person', 'car', 'bike', 'auto', 'bus', 'livestock', 'helmet', 'no_helmet', 'truck', 'number_plate']
 colors = {
-    'person': (0, 255, 0), 'car': (255, 0, 0), 'bike': (0, 0, 255), 'auto': (255, 255, 0),
-    'bus': (255, 165, 0), 'livestock': (128, 0, 128), 'helmet': (0, 255, 255),
-    'no_helmet': (0, 100, 255), 'truck': (139, 69, 19), 'number_plate': (255, 20, 147)
+    'person': (0, 255, 0), 'car': (255, 0, 0), 'bike': (0, 0, 255),
+    'auto': (255, 255, 0), 'bus': (255, 165, 0), 'livestock': (128, 0, 128),
+    'helmet': (0, 255, 255), 'no_helmet': (0, 100, 255), 'truck': (139, 69, 19), 'number_plate': (255, 20, 147)
 }
 
-# ==== LOAD MODEL ====
-model = YOLO(model_path)
-
-# ==== STREAMLIT SIDEBAR ====
+# ==== UI ====
 st.sidebar.title("🧭 Navigation")
 selected_tab = st.sidebar.radio("Go to", ["Live Inference", "Incidents", "Map"])
 
-# ==== LIVE INFERENCE ====
+st.sidebar.markdown("### 🎯 Confidence Thresholds")
+confidence_thresholds = {label: st.sidebar.slider(label, 0.0, 1.0, 0.3, 0.05) for label in labels}
+
+# ==== POLYGONAL ROI (No Parking Zone) ====
+NO_PARKING_POLYGONS = [
+    np.array([[501, 1521], [744, 957], [1026, 960], [1149, 1512]], np.int32),
+    np.array([[1494, 1029], [2748, 1305], [2973, 1047], [1695, 927]], np.int32)
+]
+
+# ==== Live Inference ====
 if selected_tab == "Live Inference":
-    st.title("🚦Traffic Inference Dashboard")
-    input_mode = st.radio("📡 Input Mode", ["Upload Video", "Live Cam"])
-    confidence_threshold = st.slider("📏 Confidence Threshold", 0.0, 1.0, 0.3, step=0.05)
-    label_filter = st.multiselect("🏷️ Filter by Label", labels, default=labels)
+    st.title("🚦AI-Based Real Time Traffic Violation Detection System")
+    input_mode = st.radio("Select Input", ["Upload Video", "Live Cam"])
+    label_filter = st.multiselect("Filter Labels", labels, default=labels)
+    
+    violation_options = ["No Helmet", "Triple Riding", "No Parking"]
+    selected_violations = st.multiselect("Select Violations to Monitor", violation_options, default=violation_options)
 
+    if 'stop_camera' not in st.session_state:
+        st.session_state['stop_camera'] = False
+
+    cap = None
     if input_mode == "Upload Video":
-        video_files = [f for f in os.listdir(video_dir) if f.endswith(('.mp4', '.avi', '.MOV'))]
-        selected_video = st.selectbox("🎥 Select Input Video", video_files)
-        start_inference = st.button("▶️ Start Inference")
-
-        if start_inference:
+        video_files = [f for f in os.listdir(video_dir) if f.endswith((".mp4", ".avi", ".MOV"))]
+        selected_video = st.selectbox("Select Video", video_files)
+        if st.button("Start Inference"):
             cap = cv2.VideoCapture(os.path.join(video_dir, selected_video))
     else:
-        start_cam = st.button("🎥 Start Camera")
-        stop_cam = st.button("🛑 Stop Camera")
-        cap = None
-        ip_webcam_url = st.text_input("📱 Enter IP Webcam URL", "http://192.168.2.93:8080/video")
+        ip_url = st.text_input("Enter IP Camera RTSP URL", "RTSP LINK")
+        if st.button("🎥 Start Camera"):
+            cap = cv2.VideoCapture(ip_url)
+            st.session_state['stop_camera'] = False
+        if st.button("🛑 Stop Camera"):
+            st.session_state['stop_camera'] = True
 
-        if start_cam:
-            cap = cv2.VideoCapture(ip_webcam_url)
-
-    if (input_mode == "Upload Video" and start_inference) or (input_mode == "Live Cam" and cap is not None):
+    if cap and cap.isOpened() and not st.session_state['stop_camera']:
         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
         output_path = os.path.join(output_dir, f'output_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp4')
         out_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         stframe = st.empty()
-        summary = defaultdict(int)
-
         frame_buffer = []
-        incident_count = 0
+        summary = defaultdict(int)
+        cooldown = 10
+        last_detection_time = defaultdict(lambda: datetime.min)
+        no_parking_trackers = defaultdict(lambda: {"count": 0, "last_seen": 0})
         current_frame_idx = 0
+        stationary_time_threshold_seconds = 5
 
-        while cap.isOpened():
+        while cap.isOpened() and not st.session_state['stop_camera']:
             ret, frame = cap.read()
             if not ret:
                 break
-
             current_frame_idx += 1
             raw_frame = frame.copy()
-
-            # Keep last 5 seconds of frames
             frame_buffer.append(raw_frame)
-            if len(frame_buffer) > fps * 5:
+            if len(frame_buffer) > fps * 10:
                 frame_buffer.pop(0)
 
             results = model(frame)[0]
-            violation_detected = False
-            detected_frame = None
-
+            detections_by_label = defaultdict(list)
+            boxes_by_label = defaultdict(list)
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 conf = box.conf[0].item()
                 cls = int(box.cls[0].item())
                 label = labels[cls]
-
-                if conf < confidence_threshold or label not in label_filter:
+                if conf < confidence_thresholds[label] or label not in label_filter:
                     continue
+                detections_by_label[label].append(((x1, y1, x2, y2), conf))
 
-                summary[label] += 1
-                color = colors.get(label, (255, 255, 255))
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            for label, detections in detections_by_label.items():
+                boxes, confs = zip(*detections)
+                keep = non_max_suppression_classwise(boxes, confs)
+                for idx in keep:
+                    (x1, y1, x2, y2), conf = detections[idx]
+                    summary[label] += 1
+                    color = colors.get(label, (255, 255, 255))
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    cv2.putText(frame, f'{label} {conf:.2f}', (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                    boxes_by_label[label].append((x1, y1, x2, y2))
 
-                if label == "no_helmet" and not violation_detected:
-                    violation_detected = True
-                    detected_frame = frame.copy()
+            for roi in NO_PARKING_POLYGONS:
+                cv2.polylines(frame, [roi], isClosed=True, color=(0, 0, 255), thickness=2)
+
+            if "Triple Riding" in selected_violations:
+                for bike in boxes_by_label['bike']:
+                    persons = [p for p in boxes_by_label['person'] if bike[0] < (p[0]+p[2])//2 < bike[2] and bike[1] < (p[1]+p[3])//2 < bike[3]]
+                    if len(persons) >= 3 and (datetime.now() - last_detection_time['triple_riding']).total_seconds() > cooldown:
+                        last_detection_time['triple_riding'] = datetime.now()
+                        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        img_path = os.path.join(triple_riding_dir, 'frames', f'triple_frame_{ts}.jpg')
+                        clip_path = os.path.join(triple_riding_dir, 'clips', f'triple_incident_{ts}.mp4')
+                        threading.Thread(target=save_violation_clip, args=(img_path, clip_path, frame.copy(), frame_buffer.copy(), fps, width, height, "🚨 Triple Riding Detected!")).start()
+
+            if "No Helmet" in selected_violations:
+                if 'no_helmet' in boxes_by_label and 'person' in boxes_by_label and 'bike' in boxes_by_label:
+                    for nh_box in boxes_by_label['no_helmet']:
+                        x_nh, y_nh = (nh_box[0] + nh_box[2]) // 2, (nh_box[1] + nh_box[3]) // 2
+                        for person_box in boxes_by_label['person']:
+                            if person_box[0] <= x_nh <= person_box[2] and person_box[1] <= y_nh <= person_box[3]:
+                                x_p, y_p = (person_box[0] + person_box[2]) // 2, (person_box[1] + person_box[3]) // 2
+                                for bike_box in boxes_by_label['bike']:
+                                    if bike_box[0] <= x_p <= bike_box[2] and bike_box[1] <= y_p <= bike_box[3]:
+                                        if (datetime.now() - last_detection_time['no_helmet']).total_seconds() > cooldown:
+                                            last_detection_time['no_helmet'] = datetime.now()
+                                            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+                                            img_path = os.path.join(no_helmet_dir, 'frames', f'helmet_frame_{ts}.jpg')
+                                            clip_path = os.path.join(no_helmet_dir, 'clips', f'helmet_incident_{ts}.mp4')
+                                            threading.Thread(
+                                                target=save_violation_clip,
+                                                args=(img_path, clip_path, frame.copy(), frame_buffer.copy(), fps, width, height,
+                                                    "🚨 No Helmet Violation Detected!")
+                                            ).start()
+                                            break
+
+            if "No Parking" in selected_violations:
+                for vlabel in ['car', 'bike', 'auto']:
+                    for (x1, y1, x2, y2) in boxes_by_label[vlabel]:
+                        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+                        key = f"{vlabel}_{cx}_{cy}"
+                        inside_any_roi = any(cv2.pointPolygonTest(roi, (cx, cy), False) >= 0 for roi in NO_PARKING_POLYGONS)
+                        if inside_any_roi:
+                            no_parking_trackers[key]['count'] += 1
+                            no_parking_trackers[key]['last_seen'] = current_frame_idx
+                        else:
+                            no_parking_trackers[key]['count'] = 0
+
+                for key, val in list(no_parking_trackers.items()):
+                    if val['count'] > fps * stationary_time_threshold_seconds and (datetime.now() - last_detection_time['no_parking']).total_seconds() > cooldown:
+                        last_detection_time['no_parking'] = datetime.now()
+                        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        img_path = os.path.join(no_parking_dir, 'frames', f'park_frame_{ts}.jpg')
+                        clip_path = os.path.join(no_parking_dir, 'clips', f'park_incident_{ts}.mp4')
+                        threading.Thread(target=save_violation_clip, args=(img_path, clip_path, frame.copy(), frame_buffer.copy(), fps, width, height, "❌ No Parking Violation Detected!")).start()
+                        del no_parking_trackers[key]
 
             out_writer.write(frame)
-            stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
-
-            if violation_detected and detected_frame is not None:
-                incident_count += 1
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-                # Save frame
-                frame_path = os.path.join(frames_dir, f"no_helmet_frame_{incident_count}_{timestamp}.jpg")
-                cv2.imwrite(frame_path, detected_frame)
-
-                # Send to Telegram
-                send_telegram_alert(frame_path)
-
-                # Save 10-sec clip
-                clip_path = os.path.join(clips_dir, f"no_helmet_incident_{incident_count}_{timestamp}.mp4")
-                incident_writer = cv2.VideoWriter(clip_path, fourcc, fps, (width, height))
-                for bf in frame_buffer:  # 5 seconds before
-                    incident_writer.write(bf)
-                for _ in range(fps * 5):  # 5 seconds after
-                    incident_writer.write(raw_frame)
-                incident_writer.release()
-
+            stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels='RGB', use_container_width=True)
             time.sleep(1 / fps)
-            if input_mode == "Live Cam" and stop_cam:
-                break
 
         cap.release()
         out_writer.release()
+        st.success(f"✅ Output saved to {output_path}")
+        st.write(dict(summary))
 
-        st.success(f"✅ Inference complete! Output saved to `{output_path}`")
-        st.subheader("📊 Violation Summary")
-        st.table([{"Label": k, "Count": v} for k, v in summary.items()])
 
-# ==== INCIDENT VIEWER ====
-elif selected_tab == "Incidents":
-    st.title("🚨 Incident Viewer")
 
-    folders = sorted([f for f in os.listdir(base_incident_dir) if os.path.isdir(os.path.join(base_incident_dir, f))])
-    selected_folder = st.selectbox("📁 Select Incident Folder", folders)
 
-    selected_folder_path = os.path.join(base_incident_dir, selected_folder)
-    selected_frames_dir = os.path.join(selected_folder_path, "frames")
-    selected_clips_dir = os.path.join(selected_folder_path, "clips")
 
-    image_files = sorted(os.listdir(selected_frames_dir), reverse=True)
-    video_files = sorted(os.listdir(selected_clips_dir), reverse=True)
+# ==== Incident View ====
 
-    incidents_per_page = 5
-    total_incidents = len(video_files)
-    total_pages = (total_incidents - 1) // incidents_per_page + 1
-    page = st.number_input("📄 Page", 1, total_pages, 1)
+import os
+import streamlit as st
+import math
+from datetime import datetime
+import plotly.express as px
+from collections import Counter
 
-    start = (page - 1) * incidents_per_page
-    end = start + incidents_per_page
+# Mapping of violation types to folder prefixes
+VIOLATION_TYPES = {
+    "No Helmet": "no_helmet_",
+    "Triple Riding": "triple_riding_",
+    "No Parking": "no_parking_"
+}
 
-    current_images = image_files[start:end]
-    current_videos = video_files[start:end]
 
-    st.markdown("### 🖼️ Frames")
-    for img_file in current_images:
-        img_path = os.path.join(selected_frames_dir, img_file)
-        st.image(img_path, caption=img_file, use_container_width=True)
+def load_incident_data():
+    """
+    Scan incident folder and organize image paths by (violation type, date).
+    Returns:
+        incident_map[(violation_type, date)] = list of (img_path, caption)
+    """
+    incident_map = {}
 
-    # st.markdown("### 🎞️ Clips")
-    # for vid_file in current_videos:
-    #     vid_path = os.path.join(selected_clips_dir, vid_file)
-    #     with open(vid_path, 'rb') as video_file:
-    #         video_bytes = video_file.read()
-    #         st.video(video_bytes)
+    for folder_name in os.listdir(incident_base):
+        for violation_label, prefix in VIOLATION_TYPES.items():
+            if folder_name.startswith(prefix):
+                date_str = folder_name.replace(prefix, "")
+                try:
+                    date_obj = datetime.strptime(date_str, "%d-%m-%Y").date()
+                    frame_dir = os.path.join(incident_base, folder_name, "frames")
+                    if os.path.isdir(frame_dir):
+                        for img_file in os.listdir(frame_dir):
+                            if img_file.endswith(".jpg"):
+                                img_path = os.path.join(frame_dir, img_file)
+                                incident_map.setdefault((violation_label, date_obj), []).append(
+                                    (img_path, f"{img_file}")
+                                )
+                except:
+                    continue
+    return incident_map
 
-    st.markdown("---")
-    st.subheader("🚧 Coming Soon")
-    st.markdown("🅿️ **No Parking Violations** – Data not yet available.")
-    st.markdown("👨‍👩‍👦 **Triple Riding Violations** – Data not yet available.")
+def display_incidents_ui():
+    st.header("📂 Incidents Viewer")
 
-# ==== MAP TAB ====
-elif selected_tab == "Map":
-    st.title("🗺️ Real-time Map View")
+    # Load once and reuse
+    incident_data = load_incident_data()
+
+    # Let user select violation type
+    selected_violation = st.selectbox("Select Violation Type", list(VIOLATION_TYPES.keys()))
+
+    # Get all dates available for this violation type
+    available_dates = sorted(
+        {date for (violation, date) in incident_data.keys() if violation == selected_violation},
+        reverse=True
+    )
+
+    if not available_dates:
+        st.warning("No incidents available for this violation type.")
+        return
+
+    # Date input
+    selected_date = st.date_input("Select Date", value=available_dates[0],
+                                  min_value=available_dates[-1], max_value=available_dates[0])
+
+    # Fetch relevant frames
+    selected_frames = incident_data.get((selected_violation, selected_date), [])
+    st.markdown(f"### {selected_violation} incidents on {selected_date.strftime('%d-%m-%Y')}: **{len(selected_frames)}**")
+
+    if not selected_frames:
+        st.info("No incidents found for this date.")
+        return
+
+    # Paginate and show
+    per_page = 9
+    total_pages = math.ceil(len(selected_frames) / per_page)
+    page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1)
+
+    start = (page - 1) * per_page
+    end = start + per_page
+    current_frames = selected_frames[start:end]
+
+    for row in range(0, len(current_frames), 3):
+        cols = st.columns(3)
+        for col, (img_path, caption) in zip(cols, current_frames[row:row + 4]):
+            col.image(img_path, use_container_width=True, caption=caption)
+
+if selected_tab == "Incidents":
+    # ==== Graph of Incident Counts by Date ====
+    incident_counts = {'no_helmet': Counter(), 'triple_riding': Counter(), 'no_parking': Counter()}
+
+    incident_base = os.path.join(base_dir, 'incidents')
+    for folder in os.listdir(incident_base):
+        for incident_type in incident_counts:
+            if folder.startswith(incident_type):
+                date_str = folder.replace(f"{incident_type}_", "")
+                frame_path = os.path.join(incident_base, folder, 'frames')
+                if os.path.exists(frame_path):
+                    count = len([f for f in os.listdir(frame_path) if f.endswith('.jpg')])
+                    incident_counts[incident_type][date_str] += count
+
+    # Flatten the data for Plotly
+    data_for_graph = []
+    for incident_type, date_counter in incident_counts.items():
+        for date_str, count in sorted(date_counter.items()):
+            data_for_graph.append({
+                "Date": date_str,
+                "Incident Type": incident_type.replace("_", " ").title(),
+                "Count": count
+            })
+
+    if data_for_graph:
+        fig = px.bar(data_for_graph, x="Date", y="Count", color="Incident Type",
+                    barmode='group', title="📈 Incident Counts Over Time")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No incidents available for plotting.")
+    
+    display_incidents_ui()
+
+
+
+# ==== Map Tab ====
+if selected_tab == "Map":
+    st.title("🌎 Real-time Map View")
     import streamlit.components.v1 as components
     map_url = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3888.9472910587865!2d77.63261757512184!3d12.911109287398782!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae15d1559e2651%3A0xb27e383e612faa20!2sLivNSense%20GreenOps%20Pvt%20Ltd!5e0!3m2!1sen!2sin!4v1744711532262!5m2!1sen!2sin"
 
@@ -1148,5 +367,3 @@ elif selected_tab == "Map":
             </iframe>
         </div>
     """, height=820)
-
-#---------------------------------------------triple riding and no parking----------------------------------------------

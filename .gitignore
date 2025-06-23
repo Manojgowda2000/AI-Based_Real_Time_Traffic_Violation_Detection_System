@@ -1,10 +1,12 @@
 export_data_from_cvat/
 inference/.streamlit/
-inference/incidents_clips/
+inference/incidents/
 inference/input_videos/
 inference/models/
 inference/output_videos/
 inference/hand_gesture.py
+inference/inference_script.py
+inference/modified_app.py
 inference/key.py
 inference/OCR.py
 inference/live_rtsp_inference.py

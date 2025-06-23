@@ -25,7 +25,8 @@ def main(image_path):
         return
 
     clone = img.copy()
-    cv2.namedWindow("Image - Draw ROI (Press Enter to finish)")
+    cv2.namedWindow("Image - Draw ROI (Press Enter to finish)", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Image - Draw ROI (Press Enter to finish)", 1280, 720)
     cv2.setMouseCallback("Image - Draw ROI (Press Enter to finish)", click_event)
 
     print("Instructions:")
@@ -64,6 +65,6 @@ def main(image_path):
 
 
 if __name__ == "__main__":
-    image_path = "G:\\desktop\\MyProjects\\DL_projects\\BPRD_usecase\\inference\\in.png"  # Replace with your image path
+    image_path = "C:\\Users\\manoj\\OneDrive\\Desktop\\helmet_frame_20250617_164705.jpg"  # Replace with your image path
     points = main(image_path)
     print("Returned ROI points:", points)
