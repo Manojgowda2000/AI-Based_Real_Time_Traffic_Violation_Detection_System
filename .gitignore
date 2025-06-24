@@ -5,7 +5,7 @@ inference/input_videos/
 inference/models/
 inference/output_videos/
 inference/hand_gesture.py
-inference/inference_script.py
+inference/pt_inference_script.py
 inference/modified_app.py
 inference/key.py
 inference/OCR.py
@@ -19,4 +19,4 @@ training/traffic_data03-Apr-2025/
 training/traffic_dataset_04-Apr-2025/
 training/yolo11n.pt
 videos_to_frames/
-inference/modified_app.py
+inference/final_app.py

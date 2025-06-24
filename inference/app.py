@@ -47,9 +47,9 @@ def save_violation_clip(image_path, clip_path, frame, frame_buffer, fps, width, 
     send_telegram_alert(image_path, message)
 
 # ==== PATH SETUP ====
-base_dir = '/home/livnsense/Projects/BPRD_usecase/inference'
+base_dir = '/Project/inference'
 model_path = os.path.join(base_dir, 'models/MODEL.pt')
-video_dir = os.path.join(base_dir, 'input_videos/input_videos_10-04-2025')
+video_dir = os.path.join(base_dir, 'input_videos')
 output_dir = os.path.join(base_dir, f'output_videos/output_videos_{current_date}')
 incident_base = os.path.join(base_dir, 'incidents')
 no_helmet_dir = os.path.join(incident_base, f'no_helmet_{current_date}')
