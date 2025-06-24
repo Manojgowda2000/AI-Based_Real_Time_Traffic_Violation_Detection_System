@@ -20,3 +20,5 @@ training/traffic_dataset_04-Apr-2025/
 training/yolo11n.pt
 videos_to_frames/
 inference/final_app.py
+training_code/
+data_splitting/
