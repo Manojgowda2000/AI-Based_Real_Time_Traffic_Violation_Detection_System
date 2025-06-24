@@ -40,6 +40,14 @@ An end-to-end real-time traffic monitoring solution using YOLOv8 for object dete
 
 ---
 
+## 🔁 System Flow
+
+The following diagram illustrates the complete flow of the AI-based traffic violation detection system:
+
+![AI Traffic Violation Flowchart](images/flowchart.png)
+
+---
+
 ## 🧪 Folder Structure
 
 ```
@@ -96,7 +104,18 @@ streamlit run app.py
 ```
 
 ---
+### 🖥️ Live Inference Tab
 
+![Live Inference](images/inference_tab.png)
+
+---
+
+### 📂 Incidents Tab
+
+![Incidents Tab](images/incidents_graph.png)
+![Incidents Tab](images/incidents_viewer.png)
+
+---
 ## 📬 Contact
 
 Developed by **Manoj R Gowda.**
