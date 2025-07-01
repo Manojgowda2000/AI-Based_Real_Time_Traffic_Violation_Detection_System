@@ -113,7 +113,6 @@ streamlit run app.py
 ### 📂 Incidents Tab
 
 ![Incidents Tab](images/incidents_graph.png)
-![Incidents Tab](images/incidents_viewer.png)
 
 ---
 ## 📬 Contact
